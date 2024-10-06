@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Seismic Wave Display</title>
+    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
+    <style>
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background-image: url('static/Dash.jpg');
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    overflow: hidden;
+}
+
+.container {
+    width: 100vw;
+    max-width: 1920px;
+    padding: 20px;
+    position: relative;
+    top: 100px;
+    z-index: 1;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+}
+
+.left-column, .middle-column, .right-column {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px;
+    box-sizing: border-box;
+}
+
+.graph-container {
+    width: 100%;
+    height: calc(33.33vh - 10px);
+    margin-top: 3px;
+}
+
+.compressed-container {
+    width: 100%;
+    height: calc(33.33vh - 10px);
+    margin-top: 10px;
+}
+
+.stft-container, .prediction-container {
+    width: 100%;
+    text-align: center;
+}
+
+.energy-bar-container {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.moon-layer {
+    margin-top: 10px;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+.energy-bar {
+    width: 100px;
+    height: 200px;
+    border: 1px solid #aaa;
+    position: relative;
+    margin: 0 auto;
+}
+
+.energy-bar-fill {
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 左侧：原始数据 -->
+        <div class="left-column">
+            <h3 style="margin-bottom: 0; color: #FFFFFF;">Raw Data</h3>
+            <div class="graph-container">
+                <div id="graph"></div>
+            </div>
+            <h3 style="margin-bottom: 0; color: #878787;">Downsampled Waveform</h3>
+            <div class="downsample-container">
+                <div id="downsample-graph"></div>
+            </div>
+            <h3 style="margin-bottom: 0; color: #878787;">Compressed Sensing Waveform</h3>
+            <div class="compressed-container">
+                <div id="compressed-graph"></div>
+            </div>
+        </div>
+        
+        <!-- 中间：震动分析区域 -->
+        <div class="middle-column">
+            <h3 style="color: #FFFFFF;">Quake Type</h3>
+            <img id="quakeTypeImage" src="static/NoMoonquake.png" alt="Quake Type Image">
+            
+            <h3 style="color: #878787;">STFT</h3>
+            <div class="stft-container">
+                <img id="stftImage" src="data:image/png;base64,{{ stft_image }}" alt="STFT Image">
+            </div>
+
+            <h3 style="color: #878787;">Seismic Detection Probability</h3>
+            <div class="prediction-container">
+                <h3 id="prediction" style="color: #FFFFFF;">100%</h3>
+            </div>
+
+            <h3 style="color: #878787;">Quake Energy</h3>
+            <div class="energy-bar-container">
+                <h3 id="energy" style="color: #FFFFFF;">100%</h3>
+            </div>
+        </div>
+
+        <!-- 右侧：月球层结构 -->
+        <div class="right-column">
+            <div class="moon-layer">
+                <h3>Moon Layer</h3>
+                <img src="path_to_moon_layer_image.png" alt="Moon Layer Structure">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const times = JSON.parse('{{ times|escapejs }}');
+        const velocities = JSON.parse('{{ velocities|escapejs }}');
+        const downsampled_times = JSON.parse('{{ downsampled_times|escapejs }}');
+        const downsampled_velocities = JSON.parse('{{ downsampled_velocities|escapejs }}');
+        const compressed_velocities = JSON.parse('{{ compressed_velocities|escapejs }}');
+
+        let x_vals = [];
+        let y_vals = [];
+        let downsampled_x_vals = [];
+        let downsampled_y_vals = [];
+        let compressed_y_vals = [];
+        let stft_accumulated_data = [];  // 用来累积进行 STFT 的数据
+
+        const max_display_points = 53000;
+        const downsampled_max_display_points = Math.floor(max_display_points / 10);
+        const update_size = 2000;
+        const downsample_rate = 10;
+        const downsampled_update_size = Math.floor(update_size / downsample_rate);
+        const stft_required_points = 53000;
+        const update_interval = 100;
+
+        let current_index = 0;
+        let downsampled_index = 0;
+
+        const labels = ['impact_mq', 'deep_mq', 'shallow_mq', 'no_wave'];
+        const images = ['static/Impact.png', 'static/DeepMoonquake.png', 'static/ShallowMoonquake.png', 'static/NoMoonquake.png'];
+
+        function initializePlot() {
+            // 原始波形图
+            Plotly.newPlot('graph', [{
+                x: [],
+                y: [],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#0059C0' },
+                name: 'Original Waveform'
+            }], {
+                margin: { t: 30, l: 50, r: 20, b: 40 },
+                yaxis: { title: 'Amplitude' },
+                xaxis: { title: 'Time (seconds)' },
+                height: 250,
+                paper_bgcolor: '#14181B',
+                plot_bgcolor: '#14181B',
+                autosize: false
+            });
+
+            // 降采样后的波形图
+            Plotly.newPlot('downsample-graph', [{
+                x: [],
+                y: [],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: "#3c3c3c" },
+                name: 'Downsampled Waveform'
+            }], {
+                margin: { t: 10, l: 50, r: 20, b: 40 },
+                yaxis: { title: 'Amplitude' },
+                xaxis: { title: 'Time (seconds)' },
+                height: 150,
+                paper_bgcolor: '#131619',
+                plot_bgcolor: '#131619',
+                autosize: false
+            });
+
+            // 压缩感知后的波形图
+            Plotly.newPlot('compressed-graph', [{
+                x: [],
+                y: [],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#555555' },
+                name: 'Compressed Sensing Waveform'
+            }], {
+                margin: { t: 15, l: 50, r: 20, b: 40 },
+                yaxis: { title: 'Amplitude' },
+                xaxis: { title: 'Time (seconds)' },
+                height: 150,
+                paper_bgcolor: '#131619',
+                plot_bgcolor: '#131619',
+                autosize: false
+            });
+        }
+
+        function updateSTFTAndPrediction(signalSegment) {
+            fetch('/stft/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ signal: signalSegment })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const stftImage = document.getElementById('stftImage');
+                stftImage.src = "data:image/png;base64," + data.stft_image;
+
+                const predClass = data.pred_class;
+                document.getElementById('quakeTypeImage').src = images[predClass];
+
+                const probability = (data.adjusted_prob * 100).toFixed(2) + '%';
+                document.getElementById('prediction').textContent = probability;
+            })
+            .catch(error => console.error('Error updating STFT and prediction:', error));
+        }
+
+        function updatePlot() {
+            if (current_index + update_size <= times.length) {
+                let end_index = current_index + update_size;
+                let downsampled_end_index = downsampled_index + downsampled_update_size;
+
+                x_vals = x_vals.concat(times.slice(current_index, end_index));
+                y_vals = y_vals.concat(velocities.slice(current_index, end_index));
+
+                downsampled_x_vals = downsampled_x_vals.concat(downsampled_times.slice(downsampled_index, downsampled_end_index));
+                downsampled_y_vals = downsampled_y_vals.concat(downsampled_velocities.slice(downsampled_index, downsampled_end_index));
+
+                compressed_y_vals = compressed_y_vals.concat(compressed_velocities.slice(downsampled_index, downsampled_end_index));
+
+                stft_accumulated_data = stft_accumulated_data.concat(velocities.slice(current_index, end_index));
+
+                if (stft_accumulated_data.length >= stft_required_points) {
+                    stft_accumulated_data = stft_accumulated_data.slice(-stft_required_points);
+                    updateSTFTAndPrediction(stft_accumulated_data);
+                }
+
+                if (x_vals.length > max_display_points) {
+                    x_vals = x_vals.slice(-max_display_points);
+                    y_vals = y_vals.slice(-max_display_points);
+                }
+
+                if (downsampled_x_vals.length > downsampled_max_display_points) {
+                    downsampled_x_vals = downsampled_x_vals.slice(-downsampled_max_display_points);
+                    downsampled_y_vals = downsampled_y_vals.slice(-downsampled_max_display_points);
+                    compressed_y_vals = compressed_y_vals.slice(-downsampled_max_display_points);
+                }
+
+                Plotly.update('graph', {
+                    x: [x_vals],
+                    y: [y_vals]
+                }, [0]);
+
+                Plotly.update('downsample-graph', {
+                    x: [downsampled_x_vals],
+                    y: [downsampled_y_vals]
+                }, [0]);
+
+                Plotly.update('compressed-graph', {
+                    x: [downsampled_x_vals],
+                    y: [compressed_y_vals]
+                }, [0]);
+
+                current_index = end_index;
+                downsampled_index = downsampled_end_index;
+            } else {
+                current_index = 0;
+                downsampled_index = 0;
+                x_vals = [];
+                y_vals = [];
+                downsampled_x_vals = [];
+                downsampled_y_vals = [];
+                compressed_y_vals = [];
+                stft_accumulated_data = [];
+            }
+
+            setTimeout(updatePlot, update_interval);
+        }
+
+        initializePlot();
+        updatePlot();
+    </script>
+</body>
+</html>

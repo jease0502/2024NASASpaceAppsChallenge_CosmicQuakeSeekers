@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Seismic Wave Display</title>
+    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            background-image: url('static/Dash (1).jpg');
+            background-size: cover;
+            background-position: center top;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            overflow: hidden;
+        }
+        
+        .container {
+    width: 100vw;
+    max-width: 1920px;
+    padding: 20px;
+    position: relative;
+    top: 100px;
+    z-index: 1;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+}
+
+.right-column {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    height: 100%;
+    justify-content: flex-start;
+}
+
+.moon-layer {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+img#moonLayerImage {
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    object-fit: cover;
+}
+
+.left-column, .middle-column {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px;
+    box-sizing: border-box;
+}
+
+.graph-container {
+    width: 100%;
+    height: calc(33.33vh - 10px);
+    margin-top: 3px;
+}
+
+.compressed-container {
+    width: 100%;
+    height: calc(33.33vh - 10px);
+    margin-top: 10px;
+}
+
+.stft-container, .prediction-container {
+    width: 100%;
+    text-align: center;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+.middle-column {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stft-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: -10px; /* Move STFT up */
+}
+
+
+h3 {
+    text-align: left;
+    color: #878787;
+}
+
+h3#prediction, h3#power {
+    text-align: left;
+    color: #FFFFFF;
+    margin-top: -20px; /* Move Energy Bar up */
+}
+
+/* Move the STFT text to the far left */
+h3#stft-title {
+    text-align: left;
+    color: #878787;
+    /* margin-left: 200px; */
+    width: 100%; /* Make sure the text takes up full width */
+    margin-top: -10px; /* Move it up by reducing the top margin */
+}
+
+h3#bar-title{
+    text-align: left;
+    margin-left: 200px;
+    width: 100%; /* Make sure the text takes up full width */
+}
+
+/*  */
+.stft-energy-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 50%;
+    position: relative; /* Add relative positioning */
+    top: -130px; /* Move up by 100px */
+}
+
+.stft-column, .energy-bar-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 45%; /* Adjust width for both columns */
+}
+
+
+.stft-column h3, .energy-bar-column h3 {
+    color: #878787;
+    margin: 0 0 10px 0;
+    text-align: left;
+    width: 100%;
+    margin-right: -50px;
+}
+
+.energy-bar-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+.energy-bar {
+    width: 50px;
+    height: 200px;  /* 确保容器有明确高度 */
+    border: 1px solid #aaa;
+    position: relative;
+    background-color: #14181B;
+}
+
+.energy-bar-fill {
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    background-color: orange;
+    height: 0%;  /* 初始化为 0% */
+    transition: height 0.5s ease-in-out;  /* 增加过渡效果 */
+}
+
+
+
+</style>
+</head>
+
+<body>
+<div class="container">
+<!-- 左侧：原始数据 -->
+<div class="left-column">
+    <h3 style="margin-bottom: 0; color: #FFFFFF;">Raw Data</h3>
+    <div class="graph-container">
+        <div id="graph"></div>
+    </div>
+    <h3 style="margin-bottom: 0; color: #878787;">Downsampled Waveform</h3>
+    <div class="downsample-container">
+        <div id="downsample-graph"></div>
+    </div>
+    <h3 style="margin-bottom: 0; color: #878787;">Compressed Sensing Waveform</h3>
+    <div class="compressed-container">
+        <div id="compressed-graph"></div>
+    </div>
+</div>
+
+<!-- 中间：震动分析区域 -->
+<!-- Middle Column: Quake Analysis Section -->
+<div class="middle-column">
+    <h3 style="color: #FFFFFF;">Quake Type</h3>
+    <img id="quakeTypeImage" src="static/NoMoonquake.png" alt="Quake Type Image">
+
+    <!-- Seismic Detection Probability -->
+    <div style="flex-grow: 1;">
+        <h3 style="margin-left: -70px; margin-top: -20px; font-size:28px; color: #878787;">Seismic Type</h3>
+        <h3 style="margin-left: -70px;  margin-top: -20px; font-size:28px; color: #878787;">Confidence Level</h3>
+        <h3 id="prediction" style="margin-left: -70px; font-size:50px; color: #FFFFFF;">{{ prediction }}</h3>
+    </div>
+
+    <!-- Split STFT and Energy Bar into two columns -->
+    <div class="stft-energy-container">
+        <!-- Left column for STFT -->
+        <div class="stft-column">
+            <h3 id="stft-title">STFT</h3>
+            <img style = "margin-right: -50px;" id="stftImage" src="data:image/png;base64,{{ stft_image }}" alt="STFT Image" style="max-width: 70%; margin-right: 10px;">
+        </div>
+
+        <!-- Right column for Energy Bar -->
+        <div class="energy-bar-column">
+            <h3 style="margin-top: -10px; margin-left: -60px;" id="bar-title">Energy Bar</h3>
+            <div class="energy-bar">
+                <div class="energy-bar-fill" id="energyBarFill" style="height: 0%;"></div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+
+<!-- 右侧：月球层结构 -->
+<div class="right-column">
+    <div class="moon-layer">
+        <img id="moonLayerImage" src="/static/Nasa_Space_0.png" alt="Moon Layer Structure">
+    </div>
+</div>
+</div>
+
+
+<script>
+    const times = JSON.parse('{{ times|escapejs }}');
+    const velocities = JSON.parse('{{ velocities|escapejs }}');
+    const downsampled_times = JSON.parse('{{ downsampled_times|escapejs }}');
+    const downsampled_velocities = JSON.parse('{{ downsampled_velocities|escapejs }}');
+    const compressed_velocities = JSON.parse('{{ compressed_velocities|escapejs }}');
+
+    let x_vals = [];
+    let y_vals = [];
+    let downsampled_x_vals = [];
+    let downsampled_y_vals = [];
+    let compressed_y_vals = [];
+    let stft_accumulated_data = [];  // 用于累积进行 STFT 的数据
+
+    const downsample_rate = 10;
+
+    const max_display_points = 53000;
+    const downsampled_max_display_points = Math.floor(max_display_points / 10);
+    const update_size = 2000;
+    const downsampled_update_size = Math.floor(update_size / 10);
+    const stft_required_points = 53000;  // 每次需要 53,000 點進行 STFT
+    const update_interval = 100;    
+    let current_index = 0;
+    let downsampled_index = 0;
+
+    const labels = ['impact_mq', 'deep_mq', 'shallow_mq', 'no_wave'];
+    const images = ['static/Impact.png', 'static/DeepMoonquake.png', 'static/ShallowMoonquake.png', 'static/NoMoonquake.png'];
+    // 月球層結構的 GIF 替換邏輯
+    const moonLayerGIFs = [
+        'static/Nasa_Space_crust_1.gif', 
+        'static/Nasa_Space_deep_3.gif', 
+        'static/Nasa_Space_shallow_2.gif', 
+        'static/Nasa_Space_0.png'
+    ];
+
+    let isGifPlaying = false;  // 用來追蹤 GIF 是否還在播放
+
+
+
+
+    // 用于存储概率随时间的数据
+    let probability_times = [];
+    let probability_values = [];
+
+    function initializePlot() {
+        // 原始波形图
+        Plotly.newPlot('graph', [{
+            x: [],
+            y: [],
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: '#0059C0' },
+            name: 'Original Waveform'
+        }], {
+            margin: { t: 30, l: 50, r: 20, b: 40 },
+            yaxis: { title: 'Amplitude' },
+            xaxis: { title: 'Time (seconds)' },
+            height: 250,
+            paper_bgcolor: '#14181B',
+            plot_bgcolor: '#14181B',
+            autosize: false
+        });
+
+        // 降采样后的波形图
+        Plotly.newPlot('downsample-graph', [{
+            x: [],
+            y: [],
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: "#3c3c3c" },
+            name: 'Downsampled Waveform'
+        }], {
+            margin: { t: 10, l: 50, r: 20, b: 40 },
+            yaxis: { title: 'Amplitude' },
+            xaxis: { title: 'Time (seconds)' },
+            height: 150,
+            paper_bgcolor: '#131619',
+            plot_bgcolor: '#131619',
+            autosize: false
+        });
+
+        // 压缩感知后的波形图
+        Plotly.newPlot('compressed-graph', [{
+            x: [],
+            y: [],
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: '#555555' },
+            name: 'Compressed Sensing Waveform'
+        }], {
+            margin: { t: 15, l: 50, r: 20, b: 40 },
+            yaxis: { title: 'Amplitude' },
+            xaxis: { title: 'Time (seconds)' },
+            height: 150,
+            paper_bgcolor: '#131619',
+            plot_bgcolor: '#131619',
+            autosize: false
+        });
+
+        
+    }
+
+    function updateSTFTAndPrediction(signalSegment, currentTime) {
+fetch('/stft/', {
+method: 'POST',
+headers: {
+    'Content-Type': 'application/json',
+    'X-CSRFToken': '{{ csrf_token }}'
+},
+body: JSON.stringify({ signal: signalSegment, current_time: currentTime })
+})
+.then(response => response.json())
+.then(data => {
+const stftImage = document.getElementById('stftImage');
+stftImage.src = "data:image/png;base64," + data.stft_image;
+
+const predClass = data.pred_class;
+document.getElementById('quakeTypeImage').src = images[predClass];
+
+const probability = (data.adjusted_prob * 100).toFixed(2) + '%';
+document.getElementById('prediction').textContent = probability;
+
+const moonLayerImage = document.getElementById('moonLayerImage');
+
+// 控制 GIF 的播放
+if (!isGifPlaying && predClass < 3) {
+    isGifPlaying = true;
+    moonLayerImage.src = moonLayerGIFs[predClass];
+
+    // 設置 GIF 動畫結束後的操作
+    moonLayerImage.onload = () => {
+        setTimeout(() => {
+            // 如果 predClass 變成 3，則顯示靜態圖片
+            if (predClass == 3) {
+                moonLayerImage.src = moonLayerGIFs[3];
+            }
+            isGifPlaying = false;
+        }, 5000); // 假設 GIF 持續5秒
+    };
+} else if (predClass == 3 && !isGifPlaying) {
+    // 直接顯示靜態圖像
+    moonLayerImage.src = moonLayerGIFs[3];
+}
+
+})
+.catch(error => console.error('Error updating STFT and prediction:', error));
+}
+
+            
+function updateEnergyBar() {
+    // 如果 y_vals 是空数组，直接返回
+    if (y_vals.length === 0) {
+        return;
+    }
+
+    // 计算能量值
+    const energyValue = Math.abs(y_vals[0]) / 15e-7 *1000*8/10;
+
+    // 确保能量值在 0% 到 100% 之间
+    const energyPercentage = Math.min(Math.max(energyValue * 100, 0), 100);
+    
+    // 打印能量值检查是否计算正确
+    console.log(`Energy Value: ${energyValue}, Energy Percentage: ${energyPercentage}%`);
+
+    // 更新能量条的高度
+    const energyBarFill = document.getElementById('energyBarFill');
+    if (energyBarFill) {
+        energyBarFill.style.height = `${energyPercentage}%`;
+    } else {
+        console.error("energyBarFill element not found!");
+    }
+}
+
+
+    function updatePlot() {
+        if (current_index + update_size <= times.length) {
+            let end_index = current_index + update_size;
+            let downsampled_end_index = downsampled_index + downsampled_update_size;
+
+            x_vals = x_vals.concat(times.slice(current_index, end_index));
+            y_vals = y_vals.concat(velocities.slice(current_index, end_index));
+            console.log("y_vals:", y_vals);  // 确保 y_vals 正确更新
+            updateEnergyBar();
+            downsampled_x_vals = downsampled_x_vals.concat(downsampled_times.slice(downsampled_index, downsampled_end_index));
+            downsampled_y_vals = downsampled_y_vals.concat(downsampled_velocities.slice(downsampled_index, downsampled_end_index));
+
+            compressed_y_vals = compressed_y_vals.concat(compressed_velocities.slice(downsampled_index, downsampled_end_index));
+
+            stft_accumulated_data = stft_accumulated_data.concat(velocities.slice(current_index, end_index));
+            console.log('stft_accumulated_data length:', stft_accumulated_data.length);
+            
+
+            if (stft_accumulated_data.length >= stft_required_points) {
+                stft_accumulated_data = stft_accumulated_data.slice(-stft_required_points);
+                
+
+                // 计算当前预测对应的时间
+                let stft_start_index = current_index - stft_required_points;
+                if (stft_start_index < 0) {
+                    stft_start_index = 0;
+                }
+                let currentTime = times[stft_start_index];
+
+                console.log('Updating STFT and prediction at time:', currentTime);
+                updateSTFTAndPrediction(stft_accumulated_data, currentTime);
+            }
+
+            if (x_vals.length > max_display_points) {
+                x_vals = x_vals.slice(-max_display_points);
+                y_vals = y_vals.slice(-max_display_points);
+            }
+
+            if (downsampled_x_vals.length > downsampled_max_display_points) {
+                downsampled_x_vals = downsampled_x_vals.slice(-downsampled_max_display_points);
+                downsampled_y_vals = downsampled_y_vals.slice(-downsampled_max_display_points);
+                compressed_y_vals = compressed_y_vals.slice(-downsampled_max_display_points);
+            }
+
+            Plotly.update('graph', {
+                x: [x_vals],
+                y: [y_vals]
+            }, [0]);
+
+            Plotly.update('downsample-graph', {
+                x: [downsampled_x_vals],
+                y: [downsampled_y_vals]
+            }, [0]);
+
+            Plotly.update('compressed-graph', {
+                x: [downsampled_x_vals],
+                y: [compressed_y_vals]
+            }, [0]);
+
+            current_index = end_index;
+            downsampled_index = downsampled_end_index;
+        } else {
+            current_index = 0;
+            downsampled_index = 0;
+            x_vals = [];
+            y_vals = [];
+            downsampled_x_vals = [];
+            downsampled_y_vals = [];
+            compressed_y_vals = [];
+            stft_accumulated_data = [];
+        }
+
+        setTimeout(updatePlot, update_interval);
+        
+    }
+
+    initializePlot();
+    updatePlot();
+</script>
+</body>
+</html>
