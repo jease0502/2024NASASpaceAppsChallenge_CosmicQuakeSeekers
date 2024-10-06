@@ -39,7 +39,7 @@ Future improvements could include more precise data augmentation techniques, mor
 
 ## How to install
 
-python>=3.8.18
+python>=3.11
 
 ```
 pip install -r requirements.txt
