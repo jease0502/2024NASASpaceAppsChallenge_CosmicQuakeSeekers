@@ -47,33 +47,36 @@ pip install -r requirements.txt
 
 ## Building the Training Dataset
 This is the data input pipeline, where we generate the data required for training. During this process, we detect and discard multiple overlapping waveforms occurring within a specific time period in the dataset. In addition to random noise and random shuffle, we also introduce random shift, and then convert the data to Short-Time Fourier Transform (STFT) representations and save them.
-
-    python build_data
-
+```
+python build_data
+```
 ## Training the AI Model
 In this script, we provide different model configurations presented in our slides. We also apply noise injection to the input images during the data pipeline to enhance robustness. The script calculates the number of parameters and plots confusion matrices along with accuracy and loss curves.
-
-    python train.py
-
+```
+python train.py
+```
 ## Testing
 We provide the input data, along with the same data input pipeline, to visualize the prediction results.
-
-    python test.py
-
+```
+python test.py
+```
 ## Quantization
 To further reduce the model size, we perform post-training quantization (PTQ), further decreasing the model's footprint.
-
-    python PTQ.py
-
+```
+python PTQ.py
+```
 
 We also saved the best weights from different versions of training, along with training detailed .
+Additionally, we provided the training code for the end-to-end model, which allows others to reproduce our results and further explore the model's capabilities.
 
 # Website
 
 For UI design, we used Django to build the system and input simulated data to mimic the actual signal input process, embedding the AI model for real-time predictions. We also generated corresponding animations based on different types of seismic waves to visualize the prediction results.
 
-    python mange.py runserver
-    
+```
+python mange.py runserver
+```
+
+https://2b51-140-134-39-23.ngrok-free.app/
 
 
-Additionally, we provided the training code for the end-to-end model, which allows others to reproduce our results and further explore the model's capabilities.
