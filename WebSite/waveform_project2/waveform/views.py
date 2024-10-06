@@ -86,7 +86,7 @@ def model_predict(stft_image_path):
 # 读取并解析 CSV 数据
 def waveform_view(request):
     # 载入 CSV 文件
-    csv_file_path = 'input2.csv'  # 确保使用正确的文件路径
+    csv_file_path = 'input4.csv'  # 确保使用正确的文件路径
     data = pd.read_csv(csv_file_path)
 
     # 提取 time 和 velocity 数据，转换为列表
