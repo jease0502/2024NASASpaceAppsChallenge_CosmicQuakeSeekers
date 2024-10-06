@@ -35,7 +35,7 @@ importlib_resources
 keras
 Keras-Preprocessing
 kiwisolver
-libclang=
+libclang
 Markdown
 MarkupSafe
 matplotlib==3.7.5
