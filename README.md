@@ -1,4 +1,4 @@
-# Datat analysis
+# Data analysis
 
 ## (1) Dataset_Compare.ipynb
 
@@ -67,5 +67,13 @@ To further reduce the model size, we perform post-training quantization (PTQ), f
 
 
 We also saved the best weights from different versions of training, along with training detailed .
+
+# Website
+
+For UI design, we used Django to build the system and input simulated data to mimic the actual signal input process, embedding the AI model for real-time predictions. We also generated corresponding animations based on different types of seismic waves to visualize the prediction results.
+
+    python mange.py runserver
+    
+
 
 Additionally, we provided the training code for the end-to-end model, which allows others to reproduce our results and further explore the model's capabilities.
