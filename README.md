@@ -35,8 +35,15 @@ We summarize the findings from the data mining process, discussing the impact of
 
 Future improvements could include more precise data augmentation techniques, more efficient compression methods, or exploring alternative noise reduction approaches.
 
-
 # AI training
+
+## How to install
+
+python>=3.8.18
+
+```
+pip install -r requirements.txt
+```
 
 ## Building the Training Dataset
 This is the data input pipeline, where we generate the data required for training. During this process, we detect and discard multiple overlapping waveforms occurring within a specific time period in the dataset. In addition to random noise and random shuffle, we also introduce random shift, and then convert the data to Short-Time Fourier Transform (STFT) representations and save them.
